@@ -30,6 +30,9 @@ module.exports = (client, config) => {
 
       // Join-to-create only
       if (newState.channelId === config.JOIN_TO_CREATE_ID) {
+        // Prevent creating duplicate VC if the user already has one
+        if (vcData.tempVCs[userId]) return;
+
         const vc = await newState.guild.channels.create({
           name: `${newState.member.user.username}'s VC`,
           type: ChannelType.GuildVoice,
@@ -52,7 +55,7 @@ module.exports = (client, config) => {
         delete vcData.vcJoinTimestamps[userId];
       }
 
-      // Delete temp VC
+      // Delete temp VC if no members
       const tempVCId = vcData.tempVCs[userId];
       if (tempVCId) {
         const vc = newState.guild.channels.cache.get(tempVCId);
@@ -158,7 +161,7 @@ module.exports = (client, config) => {
       return message.reply(successEmbed(vclist));
     }
   });
-  
+
   // Bot Status
   client.once("ready", () => {
     console.log(`${client.user.tag} has logged in.`);
