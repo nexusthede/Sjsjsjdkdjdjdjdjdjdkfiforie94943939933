@@ -161,21 +161,4 @@ module.exports = (client, config) => {
       return message.reply(successEmbed(vclist));
     }
   });
-
-  // Bot Status
-  client.once("ready", () => {
-    console.log(`${client.user.tag} has logged in.`);
-
-    // Set streaming status for the bot with "My prefix is ."
-    client.user.setPresence({
-      activities: [
-        {
-          name: "My prefix is .",  // Custom status text showing "My prefix is ."
-          type: "STREAMING",  // Bot will show as streaming
-          url: "https://www.twitch.tv/nexus",  // Nexus's Twitch link
-        }
-      ],
-      status: "online",  // Bot's status is online
-    });
-  });
 };
