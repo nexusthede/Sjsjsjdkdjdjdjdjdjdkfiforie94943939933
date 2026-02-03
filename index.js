@@ -1,7 +1,7 @@
 // --------------------
 // DISCORD SETUP
 // --------------------
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -20,12 +20,12 @@ const voiceMaster = require("./modules/voiceMaster");
 client.once("ready", () => {
   console.log(`${client.user.tag} is online!`);
   
-  // Set the bot's streaming status
+  // Set the bot's streaming status (Streaming on Twitch)
   client.user.setPresence({
     activities: [
       {
         name: "My prefix is .",  // The message you want to show
-        type: 1,  // This sets the activity to "streaming"
+        type: ActivityType.Streaming,  // This sets the activity to "streaming"
         url: "https://www.twitch.tv/nexus"  // The Twitch link that shows up
       }
     ],
