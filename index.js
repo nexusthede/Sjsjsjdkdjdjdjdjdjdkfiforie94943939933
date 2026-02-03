@@ -1,3 +1,15 @@
+// --------------------
+// KEEP ALIVE
+// --------------------
+const express = require("express");
+const app = express();
+app.get("/", (req, res) => res.send("Bot is alive!"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Keep-alive running on port ${PORT}`));
+
+// --------------------
+// DISCORD SETUP
+// --------------------
 const { Client, GatewayIntentBits } = require("discord.js");
 const client = new Client({
   intents: [
@@ -7,19 +19,20 @@ const client = new Client({
     GatewayIntentBits.MessageContent
   ]
 });
-const config = require("./config");
 
-// Import modules
-require("./modules/voiceMaster")(client);
-require("./modules/welcome")(client);
-require("./modules/mod")(client);
+const config = require("./config");  // Contains your bot token
+const voiceMaster = require("./modules/voiceMaster");
 
-// Login
-client.login(config.TOKEN);
+// --------------------
+// LOGIN
+// --------------------
+client.once("ready", () => {
+  console.log(`${client.user.tag} is online!`);
+});
 
-// Keep bot alive 24/7
-const express = require("express");
-const app = express();
-app.get("/", (req, res) => res.send("Bot is alive!"));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Keep-alive running on port ${PORT}`));
+// --------------------
+// MODULES
+// --------------------
+voiceMaster(client, config);  // Voice Master system
+
+client.login(config.TOKEN);  // Your bot's token from config.js
