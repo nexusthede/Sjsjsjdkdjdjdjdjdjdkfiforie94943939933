@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 module.exports = (client, config) => {
-  // Data file path
+  // Data file
   const dataPath = path.join(__dirname, "..", "data", "vcData.json");
   let vcData = { vcTime: {}, vcOwners: {}, tempVCs: {}, vcJoinTimestamps: {} };
 
@@ -13,17 +13,17 @@ module.exports = (client, config) => {
 
   const saveData = () => fs.writeFileSync(dataPath, JSON.stringify(vcData, null, 2));
 
-  // Embed helper for responding to commands
+  // Embed helper
   const embedMsg = (desc) => new EmbedBuilder().setColor(config.EMBED_COLOR).setDescription(desc);
 
   // --------------------
-  // Voice Tracking: Join and Leave VC
+  // Voice Tracking
   // --------------------
   client.on("voiceStateUpdate", async (oldState, newState) => {
     if (newState.guild.id !== config.GUILD_ID) return;
     const userId = newState.id;
 
-    // Join VC (Create VC if joining the "Join to Create" channel)
+    // Join VC
     if (!oldState.channelId && newState.channelId) {
       vcData.vcJoinTimestamps[userId] = Date.now();
 
@@ -45,7 +45,7 @@ module.exports = (client, config) => {
       }
     }
 
-    // Leave VC (Delete VC if no members left)
+    // Leave VC
     if (oldState.channelId && !newState.channelId) {
       const joinTime = vcData.vcJoinTimestamps[userId];
       if (joinTime) {
@@ -54,7 +54,7 @@ module.exports = (client, config) => {
         delete vcData.vcJoinTimestamps[userId];
       }
 
-      // Delete temp VC if no members left
+      // Delete temp VC if no members
       const tempVCId = vcData.tempVCs[userId];
       if (tempVCId) {
         const vc = newState.guild.channels.cache.get(tempVCId);
@@ -67,7 +67,7 @@ module.exports = (client, config) => {
   });
 
   // --------------------
-  // Commands Handling
+  // Commands
   // --------------------
   client.on("messageCreate", async (message) => {
     if (!message.guild || message.guild.id !== config.GUILD_ID) return;
@@ -76,7 +76,6 @@ module.exports = (client, config) => {
     const args = message.content.slice(config.PREFIX.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
     const channel = message.member.voice.channel;
-
     const successEmbed = (desc) => ({ embeds: [embedMsg(desc)] });
 
     if (cmd === "vc") {
@@ -141,8 +140,8 @@ module.exports = (client, config) => {
           }
         case "rename":
           if (!args[1]) return message.reply(successEmbed("Provide a new name"));
-          await channel.setName(`${args.slice(1).join(" ")}`).catch(() => {});
-          return message.reply(successEmbed(`VC renamed to ${args.slice(1).join(" ")}`));
+          await channel.setName(`${target.user.username}'s VC`).catch(() => {});
+          return message.reply(successEmbed(`VC renamed to ${target.user.username}'s VC`));
         case "transfer":
           {
             if (!target) return message.reply(successEmbed("Mention a user to transfer VC ownership."));
@@ -159,3 +158,5 @@ module.exports = (client, config) => {
       const vclist = Object.entries(vcData.vcOwners).map(([id, owner]) => `VC: ${message.guild.channels.cache.get(id)?.name || "Deleted"} | Owner: <@${owner}>`).join("\n") || "No active VCs";
       return message.reply(successEmbed(vclist));
     }
+  });
+};
