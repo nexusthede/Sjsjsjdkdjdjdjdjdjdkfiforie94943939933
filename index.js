@@ -1,13 +1,4 @@
 // --------------------
-// KEEP ALIVE
-// --------------------
-const express = require("express");
-const app = express();
-app.get("/", (req, res) => res.send("Bot is alive!"));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Keep-alive running on port ${PORT}`));
-
-// --------------------
 // DISCORD SETUP
 // --------------------
 const { Client, GatewayIntentBits } = require("discord.js");
@@ -28,6 +19,18 @@ const voiceMaster = require("./modules/voiceMaster");
 // --------------------
 client.once("ready", () => {
   console.log(`${client.user.tag} is online!`);
+  
+  // Set the bot's streaming status
+  client.user.setPresence({
+    activities: [
+      {
+        name: "My prefix is .",  // The message you want to show
+        type: 1,  // This sets the activity to "streaming"
+        url: "https://www.twitch.tv/nexus"  // The Twitch link that shows up
+      }
+    ],
+    status: "online"  // Makes sure the bot is shown as online
+  });
 });
 
 // --------------------
