@@ -77,23 +77,10 @@ module.exports = (client, config) => {
 
     const successEmbed = (desc) => ({ embeds: [embedMsg(desc)] });
 
-    if (cmd === "vmsetup") {
-      try {
-        const hub = await message.guild.channels.create({ name: "Voice Master", type: ChannelType.GuildCategory });
-        config.CATEGORY_ID = hub.id;
-        await message.guild.channels.create({ name: "Join to Create", type: ChannelType.GuildVoice, parent: hub.id });
-        config.JOIN_TO_CREATE_ID = hub.children.cache.find(c => c.name === "Join to Create").id;
-        return message.reply(successEmbed("Voice Master setup complete."));
-      } catch (e) {
-        return message.reply(successEmbed("Failed to setup Voice Master."));
-      }
-    }
-
     if (cmd === "vc") {
       if (!channel) return message.reply(successEmbed("You must be in a voice channel."));
       const sub = args[0]?.toLowerCase();
       const target = message.mentions.members.first();
-      const numArg = parseInt(args[1]);
 
       switch (sub) {
         case "lock":
@@ -124,12 +111,45 @@ module.exports = (client, config) => {
             await channel.permissionOverwrites.edit(everyoneRole, { ViewChannel: true }).catch(() => {});
             return message.reply(successEmbed("VC unhidden."));
           }
-        case "info":
-          return message.reply(successEmbed(`VC Name: ${channel.name}\nCategory: ${channel.parent?.name || "None"}\nMembers: ${channel.members.size}\nLimit: ${channel.userLimit || "None"}`));
+        case "kick":
+          {
+            if (!target) return message.reply(successEmbed("Mention a user to kick from VC."));
+            if (target.voice.channel === channel) {
+              await target.voice.kick().catch(() => {});
+              return message.reply(successEmbed(`${target.user.tag} has been kicked from the VC.`));
+            } else {
+              return message.reply(successEmbed("The user is not in this VC."));
+            }
+          }
+        case "ban":
+          {
+            if (!target) return message.reply(successEmbed("Mention a user to ban from VC."));
+            if (target.voice.channel === channel) {
+              await target.voice.setChannel(null).catch(() => {});
+              return message.reply(successEmbed(`${target.user.tag} has been banned from the VC.`));
+            } else {
+              return message.reply(successEmbed("The user is not in this VC."));
+            }
+          }
+        case "permit":
+          {
+            if (!target) return message.reply(successEmbed("Mention a user to permit to join VC."));
+            await channel.permissionOverwrites.edit(target, { Connect: true }).catch(() => {});
+            return message.reply(successEmbed(`${target.user.tag} can now join the VC.`));
+          }
         case "rename":
           if (!args[1]) return message.reply(successEmbed("Provide a new name"));
-          await channel.setName(args.slice(1).join(" "));
-          return message.reply(successEmbed(`VC renamed to ${args.slice(1).join(" ")}`));
+          await channel.setName(`${target.user.username}'s VC`).catch(() => {});
+          return message.reply(successEmbed(`VC renamed to ${target.user.username}'s VC`));
+        case "transfer":
+          {
+            if (!target) return message.reply(successEmbed("Mention a user to transfer VC ownership."));
+            vcData.vcOwners[channel.id] = target.id;
+            await channel.permissionOverwrites.edit(target, { ManageChannels: true }).catch(() => {});
+            return message.reply(successEmbed(`${target.user.tag} is now the owner of this VC.`));
+          }
+        case "info":
+          return message.reply(successEmbed(`VC Name: ${channel.name}\nCategory: ${channel.parent?.name || "None"}\nMembers: ${channel.members.size}\nLimit: ${channel.userLimit || "None"}`));
       }
     }
 
@@ -137,5 +157,22 @@ module.exports = (client, config) => {
       const vclist = Object.entries(vcData.vcOwners).map(([id, owner]) => `VC: ${message.guild.channels.cache.get(id)?.name || "Deleted"} | Owner: <@${owner}>`).join("\n") || "No active VCs";
       return message.reply(successEmbed(vclist));
     }
+  });
+  
+  // Bot Status
+  client.once("ready", () => {
+    console.log(`${client.user.tag} has logged in.`);
+
+    // Set streaming status for the bot with "My prefix is ."
+    client.user.setPresence({
+      activities: [
+        {
+          name: "My prefix is .",  // Custom status text showing "My prefix is ."
+          type: "STREAMING",  // Bot will show as streaming
+          url: "https://www.twitch.tv/nexus",  // Nexus's Twitch link
+        }
+      ],
+      status: "online",  // Bot's status is online
+    });
   });
 };
