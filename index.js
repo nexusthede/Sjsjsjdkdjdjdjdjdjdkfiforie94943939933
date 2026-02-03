@@ -1,27 +1,7 @@
 // index.js
 
-const { Client, GatewayIntentBits, EmbedBuilder, ChannelType } = require("discord.js");
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-
-// Configuration (hardcoded, can be changed directly here)
-const config = {
-  TOKEN: 'YOUR_BOT_TOKEN',  // Replace with your bot's token
-  PREFIX: '.',              // Command prefix
-  GUILD_ID: "1449708401050259457",  // Your server ID
-  CATEGORY_ID: "1468344769213235306", // Voice Master category ID
-  JOIN_TO_CREATE_ID: "1468360353955053669", // Join-to-create VC ID
-  EMBED_COLOR: "#00008B"    // Embed color for messages
-};
-
-// Setup Express server for keep-alive
-const app = express();
-app.get("/", (req, res) => res.send("Bot is alive!"));
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Keep-alive running on port ${PORT}`));
-
-// Create the bot client
+// Required Discord.js dependencies
+const { Client, GatewayIntentBits } = require("discord.js");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -31,15 +11,16 @@ const client = new Client({
   ]
 });
 
-// Load the VoiceMaster functionality (no module system, just include the file)
-require('./voiceMaster.js')(client, config); // Pass the client and config to the voiceMaster logic
+// Import config and voiceMaster.js functions
+const config = require("./config");
+const { voiceStateUpdate, messageCreate } = require("./voiceMaster");  // Importing from voiceMaster.js
 
 // --------------------
-// LOGIN AND BOT STATUS
+// LOGIN
 // --------------------
 client.once("ready", () => {
   console.log(`${client.user.tag} is online!`);
-
+  
   // Set the bot's streaming status
   client.user.setPresence({
     activities: [
@@ -54,6 +35,20 @@ client.once("ready", () => {
 });
 
 // --------------------
+// VOICE STATE AND COMMAND HANDLING
+// --------------------
+
+// Voice State Update: Join and Leave VC
+client.on("voiceStateUpdate", (oldState, newState) => {
+  voiceStateUpdate(client, oldState, newState, config);  // Call the voice state update function
+});
+
+// Command Handling (Message Create)
+client.on("messageCreate", (message) => {
+  messageCreate(client, message, config);  // Call the message create function to handle commands
+});
+
+// --------------------
 // LOGIN TO DISCORD
 // --------------------
-client.login(config.TOKEN);
+client.login(config.TOKEN);  // Your bot's token from config.js
