@@ -114,14 +114,14 @@ module.exports = (client, config) => {
           {
             const everyoneRole = channel.guild.roles.everyone;
             const ownerId = vcData.vcOwners[channel.id] || message.member.id;
-            await channel.permissionOverwrites.edit(everyRole, { ViewChannel: false }).catch(() => {});
+            await channel.permissionOverwrites.edit(everyoneRole, { ViewChannel: false }).catch(() => {});
             await channel.permissionOverwrites.edit(ownerId, { ViewChannel: true }).catch(() => {});
             return message.reply(successEmbed("VC hidden."));
           }
         case "unhide":
           {
             const everyoneRole = channel.guild.roles.everyone;
-            await channel.permissionOverwrites.edit(everyRole, { ViewChannel: true }).catch(() => {});
+            await channel.permissionOverwrites.edit(everyoneRole, { ViewChannel: true }).catch(() => {});
             return message.reply(successEmbed("VC unhidden."));
           }
         case "info":
