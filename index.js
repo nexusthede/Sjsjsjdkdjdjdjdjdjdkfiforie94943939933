@@ -1,7 +1,8 @@
-// index.js
-
-// Required Discord.js dependencies
+// Import required modules
 const { Client, GatewayIntentBits } = require("discord.js");
+const voiceMaster = require("./voiceMaster");
+
+// Create a new Discord client instance
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -11,44 +12,25 @@ const client = new Client({
   ]
 });
 
-// Import config and voiceMaster.js functions
-const config = require("./config");
-const { voiceStateUpdate, messageCreate } = require("./voiceMaster");  // Importing from voiceMaster.js
-
-// --------------------
-// LOGIN
-// --------------------
+// When the client is ready (online), log a message
 client.once("ready", () => {
   console.log(`${client.user.tag} is online!`);
-  
-  // Set the bot's streaming status
+
+  // Set the bot's presence/status
   client.user.setPresence({
     activities: [
       {
-        name: "My prefix is .",  // The message you want to show
+        name: "My prefix is .", // The message you want to show
         type: 1,  // This sets the activity to "streaming"
-        url: "https://www.twitch.tv/nexus"  // The Twitch link that shows up
+        url: "https://www.twitch.tv/nexus"  // Optional Twitch URL (not required for this bot)
       }
     ],
-    status: "online"  // Makes sure the bot is shown as online
+    status: "online"  // Status is online
   });
 });
 
-// --------------------
-// VOICE STATE AND COMMAND HANDLING
-// --------------------
+// Use the voiceMaster function to handle voice-related logic
+voiceMaster(client);
 
-// Voice State Update: Join and Leave VC
-client.on("voiceStateUpdate", (oldState, newState) => {
-  voiceStateUpdate(client, oldState, newState, config);  // Call the voice state update function
-});
-
-// Command Handling (Message Create)
-client.on("messageCreate", (message) => {
-  messageCreate(client, message, config);  // Call the message create function to handle commands
-});
-
-// --------------------
-// LOGIN TO DISCORD
-// --------------------
-client.login(config.TOKEN);  // Your bot's token from config.js
+// Login to Discord with the bot's token from environment variables
+client.login(process.env.TOKEN);
