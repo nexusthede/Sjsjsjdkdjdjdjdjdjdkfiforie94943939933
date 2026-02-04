@@ -1,8 +1,11 @@
 // Import required modules
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const voiceMaster = require("./voiceMaster");
+const express = require("express");
 
-// Create a new Discord client instance
+// ======================
+// CLIENT SETUP
+// ======================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -12,25 +15,50 @@ const client = new Client({
   ]
 });
 
-// When the client is ready (online), log a message
+// ======================
+// UPTIME SERVER
+// ======================
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot is alive.");
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Uptime server running on port ${PORT}`);
+});
+
+// ======================
+// READY EVENT
+// ======================
 client.once("ready", () => {
   console.log(`${client.user.tag} is online!`);
 
-  // Set the bot's presence/status
   client.user.setPresence({
     activities: [
       {
-        name: "My prefix is .", // The message you want to show
-        type: 1,  // This sets the activity to "streaming"
-        url: "https://www.twitch.tv/nexus"  // Optional Twitch URL (not required for this bot)
+        name: "My prefix is .",
+        type: ActivityType.Streaming,
+        url: "https://www.twitch.tv/nexus"
       }
     ],
-    status: "online"  // Status is online
+    status: "online"
   });
 });
 
-// Use the voiceMaster function to handle voice-related logic
+// ======================
+// LOAD MODULES
+// ======================
 voiceMaster(client);
 
-// Login to Discord with the bot's token from environment variables
+// ======================
+// SAFETY
+// ======================
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+
+// ======================
+// LOGIN
+// ======================
 client.login(process.env.TOKEN);
