@@ -21,12 +21,12 @@ const voiceMaster = (client) => {
     try {
       const userId = newState.id;
 
-      // Join-to-create VC
+      // ===== JOIN-TO-CREATE VC =====
       if (!oldState.channelId && newState.channelId) {
         if (newState.channelId === config.JOIN_TO_CREATE_ID) {
           if (vcData.tempVCs[userId]) return;
 
-          // Bot permissions check
+          // Check bot permissions
           if (!newState.guild.members.me.permissions.has([
             PermissionsBitField.Flags.ManageChannels,
             PermissionsBitField.Flags.Connect,
@@ -34,7 +34,7 @@ const voiceMaster = (client) => {
           ])) return;
 
           const vc = await newState.guild.channels.create({
-            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase + displayName
+            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase displayName
             type: ChannelType.GuildVoice,
             parent: config.CATEGORY_ID,
             userLimit: 10,
@@ -48,18 +48,23 @@ const voiceMaster = (client) => {
         }
       }
 
-      // Delete empty temp VC
-      const oldChannel = oldState.channel;
-      if (oldChannel && vcData.vcOwners[oldChannel.id] && oldChannel.members.size === 0) {
-        await oldChannel.delete().catch(() => {});
-        delete vcData.vcOwners[oldChannel.id];
+      // ===== SAFE TEMP VC DELETE =====
+      if (oldState.channelId && vcData.vcOwners[oldState.channelId]) {
+        const tempVCId = oldState.channelId;
+        const tempVC = oldState.guild.channels.cache.get(tempVCId);
 
-        for (const uid in vcData.tempVCs) {
-          if (vcData.tempVCs[uid] === oldChannel.id) delete vcData.tempVCs[uid];
+        if (tempVC && tempVC.members.size === 0) {
+          await tempVC.delete().catch(() => {});
+          delete vcData.vcOwners[tempVCId];
+
+          for (const uid in vcData.tempVCs) {
+            if (vcData.tempVCs[uid] === tempVCId) delete vcData.tempVCs[uid];
+          }
+
+          saveData();
         }
-
-        saveData();
       }
+
     } catch (err) {
       console.error("VoiceMaster error:", err);
     }
