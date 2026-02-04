@@ -12,7 +12,7 @@ const voiceMaster = (client) => {
   }
 
   const saveData = () => fs.writeFileSync(dataPath, JSON.stringify(vcData, null, 2));
-  const embedMsg = (desc) => new EmbedBuilder().setColor("#000000").setDescription(desc);
+  const embedMsg = (desc) => new EmbedBuilder().setColor("#000001").setDescription(desc);
 
   // --------------------
   // VOICE STATE HANDLER
@@ -34,7 +34,7 @@ const voiceMaster = (client) => {
           ])) return;
 
           const vc = await newState.guild.channels.create({
-            name: `${newState.member.user.username}'s VC`,
+            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase + displayName
             type: ChannelType.GuildVoice,
             parent: config.CATEGORY_ID,
             userLimit: 10,
@@ -83,7 +83,7 @@ const voiceMaster = (client) => {
     // --------------------
     if (cmd === "list") {
       const listEmbed = new EmbedBuilder()
-        .setColor("#000000")
+        .setColor("#000001")
         .setTitle("Available VC Commands")
         .setDescription(`
 .vc lock - Lock your VC
