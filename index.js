@@ -1,7 +1,9 @@
 // Import required modules
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const voiceMaster = require("./voiceMaster");
+const welcome = require("./welcome"); // <--- added welcome module
 const express = require("express");
+const config = require("./config");
 
 // ======================
 // CLIENT SETUP
@@ -50,7 +52,8 @@ client.once("ready", () => {
 // ======================
 // LOAD MODULES
 // ======================
-voiceMaster(client);
+voiceMaster(client); // your VC module
+welcome(client);     // welcome + test greet module
 
 // ======================
 // SAFETY
@@ -61,4 +64,4 @@ process.on("uncaughtException", console.error);
 // ======================
 // LOGIN
 // ======================
-client.login(process.env.TOKEN);
+client.login(config.TOKEN);
