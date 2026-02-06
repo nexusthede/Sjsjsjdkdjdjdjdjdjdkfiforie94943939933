@@ -26,7 +26,7 @@ module.exports = (client) => {
     new EmbedBuilder().setColor("#000001").setDescription(msg);
 
   // ======================
-  // SNIPE LISTENER
+  // SNIPE LISTENER (PUBLIC)
   // ======================
   client.on("messageDelete", (message) => {
     if (!message.guild || message.author?.bot) return;
@@ -51,7 +51,7 @@ module.exports = (client) => {
     const cmd = args.shift().toLowerCase();
 
     // ======================
-    // SNIPE (PUBLIC)
+    // SNIPE
     // ======================
     if (cmd === "snipe") {
       if (!snipedMessage)
@@ -75,10 +75,7 @@ module.exports = (client) => {
     // ======================
     // STAFF CHECK
     // ======================
-    if (!isStaff(message.member))
-      return message.channel.send({
-        embeds: [makeEmbed("You do not have permission to use this command.")]
-      });
+    if (!isStaff(message.member)) return; // command restricted to staff only
 
     const target = message.mentions.members.first();
     const split = message.content.split("|");
@@ -88,14 +85,11 @@ module.exports = (client) => {
     // BAN
     // ======================
     if (cmd === "ban") {
-      if (!target)
-        return message.channel.send({ embeds: [makeEmbed("Mention a user to ban.")] });
+      if (!target) return message.channel.send({ embeds: [makeEmbed("Mention a user to ban.")] });
 
-      if (!target.bannable)
-        return message.channel.send({ embeds: [makeEmbed("I cannot ban this user.")] });
-
-      if (target.id === message.author.id)
-        return message.channel.send({ embeds: [makeEmbed("You cannot ban yourself.")] });
+      if (isStaff(target)) return; // silently ignore staff
+      if (!target.bannable) return; // cannot ban bot or higher roles
+      if (target.id === message.author.id) return; // ignore self
 
       try {
         await target.ban({ reason });
@@ -111,11 +105,10 @@ module.exports = (client) => {
     // KICK
     // ======================
     if (cmd === "kick") {
-      if (!target)
-        return message.channel.send({ embeds: [makeEmbed("Mention a user to kick.")] });
+      if (!target) return message.channel.send({ embeds: [makeEmbed("Mention a user to kick.")] });
 
-      if (!target.kickable)
-        return message.channel.send({ embeds: [makeEmbed("I cannot kick this user.")] });
+      if (isStaff(target)) return; // silently ignore staff
+      if (!target.kickable) return; // cannot kick bot or higher roles
 
       try {
         await target.kick(reason);
@@ -131,26 +124,21 @@ module.exports = (client) => {
     // MUTE (TIMEOUT)
     // ======================
     if (cmd === "mute") {
-      if (!target)
-        return message.channel.send({ embeds: [makeEmbed("Mention a user to mute.")] });
+      if (!target) return message.channel.send({ embeds: [makeEmbed("Mention a user to mute.")] });
+      if (isStaff(target)) return; // silently ignore staff
 
       const time = args[1];
-      if (!time)
-        return message.channel.send({ embeds: [makeEmbed("Provide time in minutes.")] });
+      if (!time) return message.channel.send({ embeds: [makeEmbed("Provide time in minutes.")] });
 
       const ms = parseInt(time) * 60 * 1000;
-      if (isNaN(ms))
-        return message.channel.send({ embeds: [makeEmbed("Invalid time format.")] });
+      if (isNaN(ms)) return message.channel.send({ embeds: [makeEmbed("Invalid time format.")] });
 
-      if (target.communicationDisabledUntilTimestamp)
-        return message.channel.send({ embeds: [makeEmbed("User is already muted.")] });
+      if (target.communicationDisabledUntilTimestamp) return; // already muted
 
       try {
         await target.timeout(ms, reason);
         return message.channel.send({
-          embeds: [
-            makeEmbed(`${target.user.tag} muted for ${time} minutes.\nReason: ${reason}`)
-          ]
+          embeds: [makeEmbed(`${target.user.tag} muted for ${time} minutes.\nReason: ${reason}`)]
         });
       } catch {
         return message.channel.send({ embeds: [makeEmbed("Failed to mute the user.")] });
@@ -161,11 +149,10 @@ module.exports = (client) => {
     // UNMUTE
     // ======================
     if (cmd === "unmute") {
-      if (!target)
-        return message.channel.send({ embeds: [makeEmbed("Mention a user to unmute.")] });
+      if (!target) return message.channel.send({ embeds: [makeEmbed("Mention a user to unmute.")] });
+      if (isStaff(target)) return; // silently ignore staff
 
-      if (!target.communicationDisabledUntilTimestamp)
-        return message.channel.send({ embeds: [makeEmbed("User is not muted.")] });
+      if (!target.communicationDisabledUntilTimestamp) return; // not muted
 
       try {
         await target.timeout(null);
