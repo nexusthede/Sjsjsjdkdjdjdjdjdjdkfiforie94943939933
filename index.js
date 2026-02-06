@@ -2,6 +2,7 @@
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
 const voiceMaster = require("./voiceMaster");
 const welcome = require("./welcome"); // <--- added welcome module
+const moderation = require("./moderation"); // <--- added moderation module
 const express = require("express");
 const config = require("./config");
 
@@ -11,7 +12,7 @@ const config = require("./config");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,       // <-- ADDED for welcome messages
+    GatewayIntentBits.GuildMembers,       // <-- needed for welcome
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent
@@ -53,8 +54,9 @@ client.once("ready", () => {
 // ======================
 // LOAD MODULES
 // ======================
-voiceMaster(client); // your VC module
-welcome(client);     // welcome + test greet module
+voiceMaster(client);   // Voice Master VC module
+welcome(client);       // Welcome + test greet module
+moderation(client);    // Moderation module (ban, kick, mute, unmute, snipe)
 
 // ======================
 // SAFETY
