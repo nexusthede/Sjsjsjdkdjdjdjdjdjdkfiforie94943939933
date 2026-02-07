@@ -4,9 +4,6 @@ const config = require("./config");
 module.exports = (client) => {
   let snipedMessage = null;
 
-  // ======================
-  // STAFF ROLES (PROTECTED)
-  // ======================
   const STAFF_ROLES = [
     "1449945270782525502",
     "1466497373776908353",
@@ -30,7 +27,6 @@ module.exports = (client) => {
   // ======================
   client.on("messageDelete", (message) => {
     if (!message.guild || message.author?.bot) return;
-
     snipedMessage = {
       content: message.content || "No content",
       author: message.author,
@@ -39,9 +35,6 @@ module.exports = (client) => {
     };
   });
 
-  // ======================
-  // COMMAND HANDLER
-  // ======================
   client.on("messageCreate", async (message) => {
     if (!message.guild || message.author.bot) return;
     if (!message.content.startsWith(config.PREFIX)) return;
@@ -49,11 +42,13 @@ module.exports = (client) => {
     const args = message.content.slice(config.PREFIX.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
     const target = message.mentions.members.first();
-    const split = message.content.split("|");
-    const reason = split[1]?.trim() || "No reason provided.";
+
+    // Extract optional reason after `|`
+    const reasonIndex = message.content.indexOf("|");
+    const reason = reasonIndex > -1 ? message.content.slice(reasonIndex + 1).trim() : null;
 
     // ======================
-    // SNIPE COMMAND
+    // SNIPE
     // ======================
     if (cmd === "snipe") {
       if (!snipedMessage)
@@ -75,91 +70,82 @@ module.exports = (client) => {
     }
 
     // ======================
-    // MOD COMMANDS: STAFF ONLY
+    // MOD COMMANDS
     // ======================
-    if (!isStaff(message.member)) return; // Only staff can run these
+    if (!isStaff(message.member)) return;
+
+    if (!target)
+      return message.channel.send({ embeds: [makeEmbed("Please mention a user.")] });
+
+    // Skip protected users
+    if (isStaff(target) || target.user.bot || target.id === message.author.id) {
+      return message.channel.send({
+        embeds: [makeEmbed(`Cannot moderate this user — they are staff, admin, or a bot.`)]
+      });
+    }
+
+    // Helper to build optional reason message
+    const buildMessage = (action, user, reasonText) =>
+      reasonText ? `${user} ${action}\nReason: ${reasonText}` : `${user} ${action}`;
+
+    const modAction = async (actionFunc, actionName) => {
+      try {
+        await actionFunc();
+        message.channel.send({
+          embeds: [makeEmbed(buildMessage(actionName, target.user.tag, reason))]
+        });
+      } catch {
+        message.channel.send({
+          embeds: [makeEmbed(`Failed to ${actionName} ${target.user.tag}.`)]
+        });
+      }
+    };
 
     // ======================
     // BAN
     // ======================
     if (cmd === "ban") {
-      if (!target) return;
-      if (target.user.bot) return;       // Cannot ban bots
-      if (isStaff(target)) return;       // Cannot ban staff
-      if (!target.bannable) return;
-      if (target.id === message.author.id) return;
+      if (!target.bannable)
+        return message.channel.send({ embeds: [makeEmbed(`Failed to ban ${target.user.tag}.`)] });
 
-      try {
-        await target.ban({ reason });
-        return message.channel.send({
-          embeds: [makeEmbed(`${target.user.tag} was banned.\nReason: ${reason}`)]
-        });
-      } catch {
-        return;
-      }
+      modAction(() => target.ban({ reason: reason || undefined }), "was banned");
     }
 
     // ======================
     // KICK
     // ======================
     if (cmd === "kick") {
-      if (!target) return;
-      if (target.user.bot) return;       // Cannot kick bots
-      if (isStaff(target)) return;       // Cannot kick staff
-      if (!target.kickable) return;
+      if (!target.kickable)
+        return message.channel.send({ embeds: [makeEmbed(`Failed to kick ${target.user.tag}.`)] });
 
-      try {
-        await target.kick(reason);
-        return message.channel.send({
-          embeds: [makeEmbed(`${target.user.tag} was kicked.\nReason: ${reason}`)]
-        });
-      } catch {
-        return;
-      }
+      modAction(() => target.kick(reason || undefined), "was kicked");
     }
 
     // ======================
-    // MUTE (TIMEOUT)
+    // MUTE
     // ======================
     if (cmd === "mute") {
-      if (!target) return;
-      if (target.user.bot) return;       // Cannot mute bots
-      if (isStaff(target)) return;       // Cannot mute staff
-      if (target.communicationDisabledUntilTimestamp) return;
+      if (target.communicationDisabledUntilTimestamp)
+        return message.channel.send({ embeds: [makeEmbed(`${target.user.tag} is already muted.`)] });
 
-      const time = args[1];
-      if (!time) return;
+      const time = parseInt(args[1]);
+      if (!time || isNaN(time))
+        return message.channel.send({ embeds: [makeEmbed("Please provide a valid time in minutes.")] });
 
-      const ms = parseInt(time) * 60 * 1000;
-      if (isNaN(ms)) return;
-
-      try {
-        await target.timeout(ms, reason);
-        return message.channel.send({
-          embeds: [makeEmbed(`${target.user.tag} muted for ${time} minutes.\nReason: ${reason}`)]
-        });
-      } catch {
-        return;
-      }
+      modAction(
+        () => target.timeout(time * 60 * 1000, reason || undefined),
+        `was muted for ${time} minutes`
+      );
     }
 
     // ======================
     // UNMUTE
     // ======================
     if (cmd === "unmute") {
-      if (!target) return;
-      if (target.user.bot) return;       // Cannot unmute bots
-      if (isStaff(target)) return;       // Cannot unmute staff
-      if (!target.communicationDisabledUntilTimestamp) return;
+      if (!target.communicationDisabledUntilTimestamp)
+        return message.channel.send({ embeds: [makeEmbed(`${target.user.tag} is not muted.`)] });
 
-      try {
-        await target.timeout(null);
-        return message.channel.send({
-          embeds: [makeEmbed(`${target.user.tag} has been unmuted.`)]
-        });
-      } catch {
-        return;
-      }
+      modAction(() => target.timeout(null), "has been unmuted");
     }
   });
 };
