@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require("discord.js");
+const { EmbedBuilder, PermissionsBitField } = require("discord.js");
 const config = require("./config");
 
 module.exports = (client) => {
@@ -43,7 +43,7 @@ module.exports = (client) => {
     const cmd = args.shift().toLowerCase();
     const target = message.mentions.members.first();
 
-    // Extract optional reason after `|`
+    // Optional reason
     const reasonIndex = message.content.indexOf("|");
     const reason = reasonIndex > -1 ? message.content.slice(reasonIndex + 1).trim() : null;
 
@@ -74,29 +74,32 @@ module.exports = (client) => {
     // ======================
     if (!isStaff(message.member)) return;
 
-    if (!target)
-      return message.channel.send({ embeds: [makeEmbed("Please mention a user.")] });
+    const modCommands = ["ban", "kick", "mute", "unmute", "clear", "lock", "unlock", "lockall", "nuke"];
 
-    // Skip protected users
-    if (isStaff(target) || target.user.bot || target.id === message.author.id) {
-      return message.channel.send({
-        embeds: [makeEmbed(`Cannot moderate this user — they are staff, admin, or a bot.`)]
-      });
+    // Target required only for ban/kick/mute/unmute
+    if (["ban", "kick", "mute", "unmute"].includes(cmd)) {
+      if (!target && cmd !== "unmute")
+        return message.channel.send({ embeds: [makeEmbed("Please mention a user.")] });
+
+      // Staff protection only for ban/kick/mute
+      if (["ban", "kick", "mute"].includes(cmd) && isStaff(target)) {
+        return message.channel.send({ embeds: [makeEmbed("Cannot moderate this user.")] });
+      }
     }
 
-    // Helper to build optional reason message
     const buildMessage = (action, user, reasonText) =>
       reasonText ? `${user} ${action}\nReason: ${reasonText}` : `${user} ${action}`;
 
     const modAction = async (actionFunc, actionName) => {
       try {
         await actionFunc();
-        message.channel.send({
-          embeds: [makeEmbed(buildMessage(actionName, target.user.tag, reason))]
-        });
+        if (actionName.includes("was") || actionName.includes("has"))
+          message.channel.send({
+            embeds: [makeEmbed(buildMessage(actionName, target.user.tag, reason))]
+          });
       } catch {
         message.channel.send({
-          embeds: [makeEmbed(`Failed to ${actionName} ${target.user.tag}.`)]
+          embeds: [makeEmbed(`Failed to ${actionName} ${target?.user?.tag || ""}.`)]
         });
       }
     };
@@ -146,6 +149,91 @@ module.exports = (client) => {
         return message.channel.send({ embeds: [makeEmbed(`${target.user.tag} is not muted.`)] });
 
       modAction(() => target.timeout(null), "has been unmuted");
+    }
+
+    // ======================
+    // CLEAR
+    // ======================
+    if (cmd === "clear") {
+      const amount = parseInt(args[0]);
+      if (!amount || isNaN(amount) || amount < 1)
+        return message.channel.send({ embeds: [makeEmbed("Please provide a valid number of messages to delete.")] });
+
+      try {
+        await message.channel.bulkDelete(amount, true);
+        message.channel.send({ embeds: [makeEmbed(`Deleted ${amount} messages.`)] });
+      } catch {
+        message.channel.send({ embeds: [makeEmbed("Failed to delete messages.")] });
+      }
+    }
+
+    // ======================
+    // LOCK (ADMIN ONLY)
+    // ======================
+    if (["lock", "unlock", "lockall", "nuke"].includes(cmd)) {
+      if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
+        return message.channel.send({ embeds: [makeEmbed("You must be an admin to run this command.")] });
+    }
+
+    // ======================
+    // LOCK SINGLE CHANNEL
+    // ======================
+    if (cmd === "lock") {
+      try {
+        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, {
+          SendMessages: false
+        });
+        message.channel.send({ embeds: [makeEmbed("Channel has been locked.")] });
+      } catch {
+        message.channel.send({ embeds: [makeEmbed("Failed to lock the channel.")] });
+      }
+    }
+
+    // ======================
+    // UNLOCK SINGLE CHANNEL
+    // ======================
+    if (cmd === "unlock") {
+      try {
+        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, {
+          SendMessages: true
+        });
+        message.channel.send({ embeds: [makeEmbed("Channel has been unlocked.")] });
+      } catch {
+        message.channel.send({ embeds: [makeEmbed("Failed to unlock the channel.")] });
+      }
+    }
+
+    // ======================
+    // LOCK ALL CHANNELS IN CATEGORY
+    // ======================
+    if (cmd === "lockall") {
+      const categoryId = args[0];
+      if (!categoryId) return message.channel.send({ embeds: [makeEmbed("Please provide a category ID.")] });
+
+      const category = message.guild.channels.cache.get(categoryId);
+      if (!category || category.type !== 4) return message.channel.send({ embeds: [makeEmbed("Invalid category ID.")] });
+
+      try {
+        category.children.forEach((ch) => {
+          ch.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
+        });
+        message.channel.send({ embeds: [makeEmbed("All channels in the category have been locked.")] });
+      } catch {
+        message.channel.send({ embeds: [makeEmbed("Failed to lock all channels in the category.")] });
+      }
+    }
+
+    // ======================
+    // NUKE CHANNEL (ADMIN ONLY)
+    // ======================
+    if (cmd === "nuke") {
+      try {
+        const cloned = await message.channel.clone();
+        await message.channel.delete();
+        cloned.send({ embeds: [makeEmbed("This channel has been nuked.")] });
+      } catch {
+        message.channel.send({ embeds: [makeEmbed("Failed to nuke the channel.")] });
+      }
     }
   });
 };
