@@ -1,4 +1,4 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const config = require("./config");
 
 module.exports = (client) => {
@@ -147,103 +147,6 @@ module.exports = (client) => {
         return message.channel.send({ embeds: [makeEmbed(`${target.user.tag} is not muted.`)] });
 
       modAction(() => target.timeout(null), "has been unmuted");
-    }
-
-    // ======================
-    // CLEAR
-    // ======================
-    if (cmd === "clear") {
-      const amount = parseInt(args[0]);
-      if (!amount || isNaN(amount) || amount < 1)
-        return message.channel.send({ embeds: [makeEmbed("Please provide a valid number of messages to delete.")] });
-
-      try {
-        await message.channel.bulkDelete(amount, true);
-        const msg = await message.channel.send({ embeds: [makeEmbed(`Deleted ${amount} messages.`)] });
-
-        // Delete confirmation embed & command after 5s
-        setTimeout(() => msg.delete().catch(() => {}), 5000);
-        setTimeout(() => message.delete().catch(() => {}), 5000);
-
-      } catch {
-        message.channel.send({ embeds: [makeEmbed("Failed to delete messages.")] });
-      }
-    }
-
-    // ======================
-    // LOCK / UNLOCK / LOCKALL / NUKE (ADMIN ONLY)
-    // ======================
-    if (["lock", "unlock", "lockall", "nuke"].includes(cmd)) {
-      if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
-        return message.channel.send({ embeds: [makeEmbed("You must be an admin to run this command.")] });
-    }
-
-    // ======================
-    // LOCK SINGLE CHANNEL
-    // ======================
-    if (cmd === "lock") {
-      try {
-        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, {
-          SendMessages: false
-        });
-        message.channel.send({ embeds: [makeEmbed("Channel has been locked.")] });
-      } catch {
-        message.channel.send({ embeds: [makeEmbed("Failed to lock the channel.")] });
-      }
-    }
-
-    // ======================
-    // UNLOCK SINGLE CHANNEL
-    // ======================
-    if (cmd === "unlock") {
-      try {
-        await message.channel.permissionOverwrites.edit(message.guild.roles.everyone, {
-          SendMessages: true
-        });
-        message.channel.send({ embeds: [makeEmbed("Channel has been unlocked.")] });
-      } catch {
-        message.channel.send({ embeds: [makeEmbed("Failed to unlock the channel.")] });
-      }
-    }
-
-    // ======================
-    // LOCK ALL CHANNELS IN CATEGORY
-    // ======================
-    if (cmd === "lockall") {
-      const categoryId = args[0];
-      if (!categoryId) return message.channel.send({ embeds: [makeEmbed("Please provide a category ID.")] });
-
-      const category = message.guild.channels.cache.get(categoryId);
-      if (!category || category.type !== 4)
-        return message.channel.send({ embeds: [makeEmbed("Invalid category ID.")] });
-
-      try {
-        category.children.forEach((ch) => {
-          ch.permissionOverwrites.edit(message.guild.roles.everyone, { SendMessages: false });
-        });
-        message.channel.send({ embeds: [makeEmbed("All channels in the category have been locked.")] });
-      } catch {
-        message.channel.send({ embeds: [makeEmbed("Failed to lock all channels in the category.")] });
-      }
-    }
-
-    // ======================
-    // NUKE CHANNEL
-    // ======================
-    if (cmd === "nuke") {
-      try {
-        const cloned = await message.channel.clone();
-        await message.channel.delete();
-
-        const msg = await cloned.send({ embeds: [makeEmbed("This channel has been nuked.")] });
-
-        // Delete confirmation embed & original command after 5s
-        setTimeout(() => msg.delete().catch(() => {}), 5000);
-        setTimeout(() => message.delete().catch(() => {}), 5000);
-
-      } catch {
-        message.channel.send({ embeds: [makeEmbed("Failed to nuke the channel.")] });
-      }
     }
   });
 };
