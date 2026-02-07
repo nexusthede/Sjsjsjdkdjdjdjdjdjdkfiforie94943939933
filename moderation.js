@@ -48,7 +48,7 @@ module.exports = (client) => {
     const reason = reasonIndex > -1 ? message.content.slice(reasonIndex + 1).trim() : null;
 
     // ======================
-    // SNIPE
+    // SNIPE COMMAND
     // ======================
     if (cmd === "snipe") {
       if (!snipedMessage)
@@ -74,14 +74,12 @@ module.exports = (client) => {
     // ======================
     if (!isStaff(message.member)) return;
 
-    const modCommands = ["ban", "kick", "mute", "unmute", "clear", "lock", "unlock", "lockall", "nuke"];
+    const commandsRequiringTarget = ["ban", "kick", "mute", "unmute"];
 
-    // Target required only for ban/kick/mute/unmute
-    if (["ban", "kick", "mute", "unmute"].includes(cmd)) {
+    if (commandsRequiringTarget.includes(cmd)) {
       if (!target && cmd !== "unmute")
         return message.channel.send({ embeds: [makeEmbed("Please mention a user.")] });
 
-      // Staff protection only for ban/kick/mute
       if (["ban", "kick", "mute"].includes(cmd) && isStaff(target)) {
         return message.channel.send({ embeds: [makeEmbed("Cannot moderate this user.")] });
       }
@@ -161,14 +159,19 @@ module.exports = (client) => {
 
       try {
         await message.channel.bulkDelete(amount, true);
-        message.channel.send({ embeds: [makeEmbed(`Deleted ${amount} messages.`)] });
+        const msg = await message.channel.send({ embeds: [makeEmbed(`Deleted ${amount} messages.`)] });
+
+        // Delete confirmation embed & command after 5s
+        setTimeout(() => msg.delete().catch(() => {}), 5000);
+        setTimeout(() => message.delete().catch(() => {}), 5000);
+
       } catch {
         message.channel.send({ embeds: [makeEmbed("Failed to delete messages.")] });
       }
     }
 
     // ======================
-    // LOCK (ADMIN ONLY)
+    // LOCK / UNLOCK / LOCKALL / NUKE (ADMIN ONLY)
     // ======================
     if (["lock", "unlock", "lockall", "nuke"].includes(cmd)) {
       if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
@@ -211,7 +214,8 @@ module.exports = (client) => {
       if (!categoryId) return message.channel.send({ embeds: [makeEmbed("Please provide a category ID.")] });
 
       const category = message.guild.channels.cache.get(categoryId);
-      if (!category || category.type !== 4) return message.channel.send({ embeds: [makeEmbed("Invalid category ID.")] });
+      if (!category || category.type !== 4)
+        return message.channel.send({ embeds: [makeEmbed("Invalid category ID.")] });
 
       try {
         category.children.forEach((ch) => {
@@ -224,13 +228,19 @@ module.exports = (client) => {
     }
 
     // ======================
-    // NUKE CHANNEL (ADMIN ONLY)
+    // NUKE CHANNEL
     // ======================
     if (cmd === "nuke") {
       try {
         const cloned = await message.channel.clone();
         await message.channel.delete();
-        cloned.send({ embeds: [makeEmbed("This channel has been nuked.")] });
+
+        const msg = await cloned.send({ embeds: [makeEmbed("This channel has been nuked.")] });
+
+        // Delete confirmation embed & original command after 5s
+        setTimeout(() => msg.delete().catch(() => {}), 5000);
+        setTimeout(() => message.delete().catch(() => {}), 5000);
+
       } catch {
         message.channel.send({ embeds: [makeEmbed("Failed to nuke the channel.")] });
       }
