@@ -32,9 +32,9 @@ const leaderboard = (client) => {
       guild.members.cache.forEach(member => {
         if (member.user.bot) return; // skip bots
 
-        // Pre-fill chat LB
+        // Pre-fill chat LB if not exist
         if (!lbData.chat[member.id]) lbData.chat[member.id] = { points: 0 };
-        // Pre-fill VC LB
+        // Pre-fill VC LB if not exist
         if (!lbData.voice[member.id]) lbData.voice[member.id] = { points: 0 };
       });
     }
@@ -52,11 +52,13 @@ const leaderboard = (client) => {
       .sort((a, b) => b[1].points - a[1].points)
       .slice(0, 10); // top 10
 
-    const description = sorted.map(([id, info], i) => {
+    let description = sorted.map(([id, info], i) => {
       const member = guild.members.cache.get(id);
       if (!member) return null;
       return `**${i + 1}.** ${member} - ${info.points.toFixed(1)}h`;
-    }).filter(Boolean).join("\n") || "No data yet.";
+    }).filter(Boolean).join("\n");
+
+    if (!description) description = "No data yet.";
 
     const title = type === "chat" ? "Chat Leaderboard" : "VC Leaderboard";
 
