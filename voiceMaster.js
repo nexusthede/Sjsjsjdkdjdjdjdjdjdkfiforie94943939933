@@ -12,7 +12,11 @@ const voiceMaster = (client) => {
   }
 
   const saveData = () => fs.writeFileSync(dataPath, JSON.stringify(vcData, null, 2));
-  const embedMsg = (desc) => new EmbedBuilder().setDescription(desc); // ✅ plain embed
+
+  // ✅ updated embed function with color
+  const embedMsg = (desc) => new EmbedBuilder()
+    .setDescription(desc)
+    .setColor("#202225");
 
   // --------------------
   // VOICE STATE HANDLER
@@ -26,7 +30,6 @@ const voiceMaster = (client) => {
         if (newState.channelId === config.JOIN_TO_CREATE_ID) {
           if (vcData.tempVCs[userId]) return;
 
-          // Check bot permissions
           if (!newState.guild.members.me.permissions.has([
             PermissionsBitField.Flags.ManageChannels,
             PermissionsBitField.Flags.Connect,
@@ -34,7 +37,7 @@ const voiceMaster = (client) => {
           ])) return;
 
           const vc = await newState.guild.channels.create({
-            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase displayName
+            name: `${newState.member.displayName.toLowerCase()}'s channel`,
             type: ChannelType.GuildVoice,
             parent: config.CATEGORY_ID,
             userLimit: 10,
@@ -81,7 +84,7 @@ const voiceMaster = (client) => {
     const cmd = args.shift().toLowerCase();
     const channel = message.member.voice.channel;
     const target = message.mentions.members.first();
-    const successEmbed = (d) => ({ embeds: [embedMsg(d)] }); // plain embed
+    const successEmbed = (d) => ({ embeds: [embedMsg(d)] }); // uses new color
 
     // --------------------
     // .list command
@@ -100,7 +103,8 @@ const voiceMaster = (client) => {
 .vc rename <name> — Rename your VC
 .vc transfer @user — Transfer VC ownership
 .vc info — Show VC information
-        `);
+        `)
+        .setColor("#202225"); // ✅ embed color
 
       return message.channel.send({ embeds: [listEmbed] });
     }
