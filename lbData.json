@@ -1,4 +1,12 @@
 {
   "chat": {},
-  "voice": {}
+  "voice": {},
+  "channels": {
+    "chat": null,
+    "voice": null
+  },
+  "messages": {
+    "chat": null,
+    "voice": null
+  }
 }
