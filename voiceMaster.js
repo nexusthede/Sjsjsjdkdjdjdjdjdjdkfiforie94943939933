@@ -21,12 +21,10 @@ const voiceMaster = (client) => {
     try {
       const userId = newState.id;
 
-      // ===== JOIN-TO-CREATE VC =====
       if (!oldState.channelId && newState.channelId) {
         if (newState.channelId === config.JOIN_TO_CREATE_ID) {
           if (vcData.tempVCs[userId]) return;
 
-          // Check bot permissions
           if (!newState.guild.members.me.permissions.has([
             PermissionsBitField.Flags.ManageChannels,
             PermissionsBitField.Flags.Connect,
@@ -34,7 +32,7 @@ const voiceMaster = (client) => {
           ])) return;
 
           const vc = await newState.guild.channels.create({
-            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase displayName
+            name: `${newState.member.displayName.toLowerCase()}'s channel`,
             type: ChannelType.GuildVoice,
             parent: config.CATEGORY_ID,
             userLimit: 10,
@@ -48,7 +46,6 @@ const voiceMaster = (client) => {
         }
       }
 
-      // ===== SAFE TEMP VC DELETE =====
       if (oldState.channelId && vcData.vcOwners[oldState.channelId]) {
         const tempVCId = oldState.channelId;
         const tempVC = oldState.guild.channels.cache.get(tempVCId);
@@ -90,6 +87,7 @@ const voiceMaster = (client) => {
       const listEmbed = new EmbedBuilder()
         .setColor("#000001")
         .setTitle("Available VC Commands")
+        .setThumbnail(message.guild.iconURL({ dynamic: true, size: 512 }))
         .setDescription(`
 .vc lock - Lock your VC
 .vc unlock - Unlock your VC
@@ -106,9 +104,6 @@ const voiceMaster = (client) => {
       return message.channel.send({ embeds: [listEmbed] });
     }
 
-    // --------------------
-    // VC management commands
-    // --------------------
     if (cmd !== "vc") return;
     if (!channel) return message.channel.send(successEmbed("You must be in a VC."));
     if (vcData.vcOwners[channel.id] !== message.member.id) return message.channel.send(successEmbed("You are not the VC owner."));
