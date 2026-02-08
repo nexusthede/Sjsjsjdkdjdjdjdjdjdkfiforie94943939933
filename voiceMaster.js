@@ -12,7 +12,7 @@ const voiceMaster = (client) => {
   }
 
   const saveData = () => fs.writeFileSync(dataPath, JSON.stringify(vcData, null, 2));
-  const embedMsg = (desc) => new EmbedBuilder().setColor("#000001").setDescription(desc);
+  const embedMsg = (desc) => new EmbedBuilder().setDescription(desc); // ✅ plain embed
 
   // --------------------
   // VOICE STATE HANDLER
@@ -21,10 +21,12 @@ const voiceMaster = (client) => {
     try {
       const userId = newState.id;
 
+      // ===== JOIN-TO-CREATE VC =====
       if (!oldState.channelId && newState.channelId) {
         if (newState.channelId === config.JOIN_TO_CREATE_ID) {
           if (vcData.tempVCs[userId]) return;
 
+          // Check bot permissions
           if (!newState.guild.members.me.permissions.has([
             PermissionsBitField.Flags.ManageChannels,
             PermissionsBitField.Flags.Connect,
@@ -32,7 +34,7 @@ const voiceMaster = (client) => {
           ])) return;
 
           const vc = await newState.guild.channels.create({
-            name: `${newState.member.displayName.toLowerCase()}'s channel`,
+            name: `${newState.member.displayName.toLowerCase()}'s channel`, // lowercase displayName
             type: ChannelType.GuildVoice,
             parent: config.CATEGORY_ID,
             userLimit: 10,
@@ -46,6 +48,7 @@ const voiceMaster = (client) => {
         }
       }
 
+      // ===== SAFE TEMP VC DELETE =====
       if (oldState.channelId && vcData.vcOwners[oldState.channelId]) {
         const tempVCId = oldState.channelId;
         const tempVC = oldState.guild.channels.cache.get(tempVCId);
@@ -78,32 +81,33 @@ const voiceMaster = (client) => {
     const cmd = args.shift().toLowerCase();
     const channel = message.member.voice.channel;
     const target = message.mentions.members.first();
-    const successEmbed = (d) => ({ embeds: [embedMsg(d)] });
+    const successEmbed = (d) => ({ embeds: [embedMsg(d)] }); // plain embed
 
     // --------------------
     // .list command
     // --------------------
     if (cmd === "list") {
       const listEmbed = new EmbedBuilder()
-        .setColor("#000001")
         .setTitle("Available VC Commands")
-        .setThumbnail(message.guild.iconURL({ dynamic: true, size: 512 }))
         .setDescription(`
-.vc lock - Lock your VC
-.vc unlock - Unlock your VC
-.vc hide - Hide your VC
-.vc unhide - Unhide your VC
-.vc kick @user - Kick a user from your VC
-.vc ban @user - Ban a user from your VC
-.vc permit @user - Permit a user to join your VC
-.vc rename <name> - Rename your VC
-.vc transfer @user - Transfer VC ownership
-.vc info - Show VC information
+.vc lock — Lock your VC
+.vc unlock — Unlock your VC
+.vc hide — Hide your VC
+.vc unhide — Unhide your VC
+.vc kick @user — Kick a user from your VC
+.vc ban @user — Ban a user from your VC
+.vc permit @user — Permit a user to join your VC
+.vc rename <name> — Rename your VC
+.vc transfer @user — Transfer VC ownership
+.vc info — Show VC information
         `);
 
       return message.channel.send({ embeds: [listEmbed] });
     }
 
+    // --------------------
+    // VC management commands
+    // --------------------
     if (cmd !== "vc") return;
     if (!channel) return message.channel.send(successEmbed("You must be in a VC."));
     if (vcData.vcOwners[channel.id] !== message.member.id) return message.channel.send(successEmbed("You are not the VC owner."));
