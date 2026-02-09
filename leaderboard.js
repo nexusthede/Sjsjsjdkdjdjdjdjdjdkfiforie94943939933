@@ -1,93 +1,89 @@
-const { EmbedBuilder, PermissionsBitField } = require("discord.js");
+const { EmbedBuilder } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
 const config = require("./config");
 
-module.exports = (client) => {
-  const dataPath = path.join(__dirname, "lbData.json");
-  let lbData = {
-    chat: {},
-    voice: {},
-    channels: { chat: null, voice: null },
-    messages: { chat: null, voice: null }
-  };
+const lbFile = path.join(__dirname, "lbData.json");
 
-  if (fs.existsSync(dataPath)) {
-    lbData = JSON.parse(fs.readFileSync(dataPath));
-  }
+let lbData = { chat: {}, voice: {}, channels: { chat: null, voice: null }, msgs: { chat: null, voice: null } };
 
-  const saveData = () =>
-    fs.writeFileSync(dataPath, JSON.stringify(lbData, null, 2));
+// Load existing data
+if (fs.existsSync(lbFile)) lbData = JSON.parse(fs.readFileSync(lbFile, "utf8"));
 
-  // --------------------
-  // PREFILL USERS
-  // --------------------
-  client.once("ready", async () => {
-    for (const guild of client.guilds.cache.values()) {
-      await guild.members.fetch();
+const saveData = () => fs.writeFileSync(lbFile, JSON.stringify(lbData, null, 2));
 
-      guild.members.cache.forEach(m => {
-        if (m.user.bot) return;
+const leaderboard = (client) => {
 
-        if (!lbData.chat[m.id]) lbData.chat[m.id] = { points: 0 };
-        if (!lbData.voice[m.id]) lbData.voice[m.id] = { points: 0, joined: null };
-      });
-    }
+  const updateBoards = async (guild, forceType) => {
 
-    saveData();
-    setInterval(updateBoards, 10 * 60 * 1000);
-  });
+    // CHAT LEADERBOARD
+    if ((!forceType || forceType === "chat") && lbData.channels.chat) {
+      const ch = guild.channels.cache.get(lbData.channels.chat);
+      if (ch) {
+        const e = await generate("chat", guild);
 
-  // --------------------
-  // CHAT TRACK
-  // --------------------
-  client.on("messageCreate", message => {
-    if (!message.guild || message.author.bot) return;
-
-    if (!lbData.chat[message.author.id])
-      lbData.chat[message.author.id] = { points: 0 };
-
-    lbData.chat[message.author.id].points += 0.1;
-    saveData();
-  });
-
-  // --------------------
-  // VC TRACK
-  // --------------------
-  client.on("voiceStateUpdate", (oldState, newState) => {
-    const id = newState.id;
-
-    if (!lbData.voice[id])
-      lbData.voice[id] = { points: 0, joined: null };
-
-    if (!oldState.channelId && newState.channelId) {
-      lbData.voice[id].joined = Date.now();
-    }
-
-    if (oldState.channelId && !newState.channelId) {
-      if (lbData.voice[id].joined) {
-        const diff = Date.now() - lbData.voice[id].joined;
-        lbData.voice[id].points += diff / 3600000;
-        lbData.voice[id].joined = null;
+        if (lbData.msgs.chat) {
+          const m = await ch.messages.fetch(lbData.msgs.chat).catch(() => null);
+          if (m) await m.edit({ embeds: [e] });
+          else {
+            const sent = await ch.send({ embeds: [e] });
+            lbData.msgs.chat = sent.id;
+          }
+        } else {
+          const sent = await ch.send({ embeds: [e] });
+          lbData.msgs.chat = sent.id;
+        }
         saveData();
       }
     }
-  });
 
-  // --------------------
+    // VC LEADERBOARD
+    if ((!forceType || forceType === "voice") && lbData.channels.voice) {
+      const ch = guild.channels.cache.get(lbData.channels.voice);
+      if (ch) {
+        const e = await generate("voice", guild);
+
+        if (lbData.msgs.voice) {
+          const m = await ch.messages.fetch(lbData.msgs.voice).catch(() => null);
+          if (m) await m.edit({ embeds: [e] });
+          else {
+            const sent = await ch.send({ embeds: [e] });
+            lbData.msgs.voice = sent.id;
+          }
+        } else {
+          const sent = await ch.send({ embeds: [e] });
+          lbData.msgs.voice = sent.id;
+        }
+        saveData();
+      }
+    }
+
+  };
+
   // GENERATE EMBED
-  // --------------------
-  async function generate(type, guild) {
-    const data = Object.entries(lbData[type])
-      .filter(([id]) => guild.members.cache.has(id) && !guild.members.cache.get(id).user.bot)
-      .sort((a, b) => b[1].points - a[1].points)
-      .slice(0, 10);
+  const generate = async (type, guild) => {
+    let data;
+    if (type === "chat") {
+      data = Object.entries(lbData.chat)
+        .filter(([id]) => guild.members.cache.has(id) && !guild.members.cache.get(id).user.bot)
+        .sort((a, b) => b[1].points - a[1].points)
+        .slice(0, 10);
+    } else {
+      data = Object.entries(lbData.voice)
+        .filter(([id]) => guild.members.cache.has(id) && !guild.members.cache.get(id).user.bot)
+        .sort((a, b) => b[1].points - a[1].points)
+        .slice(0, 10);
+    }
 
     let desc = "";
 
     data.forEach(([id, d], i) => {
       const m = guild.members.cache.get(id);
-      desc += `${i + 1}. ${m} - ${d.points.toFixed(1)}h\n`;
+      if (type === "chat") {
+        desc += `**${i + 1}.** ${m} — ${d.points} msgs\n`;
+      } else {
+        desc += `**${i + 1}.** ${m} — ${d.points.toFixed(1)}h\n`;
+      }
     });
 
     if (!desc) desc = "No data yet.";
@@ -97,102 +93,78 @@ module.exports = (client) => {
       .setDescription(desc)
       .setFooter({ text: "Updates every 10 minutes" })
       .setColor("#202225");
-  }
+  };
 
   // --------------------
-  // UPDATE BOARDS
+  // CHAT TRACKING
   // --------------------
-  async function updateBoards(forceType = null) {
-    for (const guild of client.guilds.cache.values()) {
-      await guild.members.fetch();
+  client.on("messageCreate", message => {
+    if (!message.guild || message.author.bot) return;
 
-      if ((!forceType || forceType === "chat") && lbData.channels.chat) {
-        const ch = guild.channels.cache.get(lbData.channels.chat);
-        if (ch) {
-          const e = await generate("chat", guild);
+    if (!lbData.chat[message.author.id]) lbData.chat[message.author.id] = { points: 0 };
+    lbData.chat[message.author.id].points += 1;
+    saveData();
+  });
 
-          if (lbData.messages.chat) {
-            const m = await ch.messages.fetch(lbData.messages.chat).catch(() => null);
-            if (m) await m.edit({ embeds: [e] });
-            else {
-              const sent = await ch.send({ embeds: [e] });
-              lbData.messages.chat = sent.id;
-            }
-          } else {
-            const sent = await ch.send({ embeds: [e] });
-            lbData.messages.chat = sent.id;
-          }
-        }
-      }
+  // --------------------
+  // VOICE TRACKING
+  // --------------------
+  client.on("voiceStateUpdate", (oldState, newState) => {
+    const guild = newState.guild;
+    if (!guild) return;
 
-      if ((!forceType || forceType === "voice") && lbData.channels.voice) {
-        const ch = guild.channels.cache.get(lbData.channels.voice);
-        if (ch) {
-          const e = await generate("voice", guild);
+    const userId = newState.id;
+    const durationHours = (newState.member.voice?.selfDeaf || newState.member.voice?.selfMute) ? 0 : 0.1;
 
-          if (lbData.messages.voice) {
-            const m = await ch.messages.fetch(lbData.messages.voice).catch(() => null);
-            if (m) await m.edit({ embeds: [e] });
-            else {
-              const sent = await ch.send({ embeds: [e] });
-              lbData.messages.voice = sent.id;
-            }
-          } else {
-            const sent = await ch.send({ embeds: [e] });
-            lbData.messages.voice = sent.id;
-          }
-        }
-      }
-    }
+    if (!lbData.voice[userId]) lbData.voice[userId] = { points: 0 };
+    lbData.voice[userId].points += durationHours;
 
     saveData();
-  }
+  });
 
   // --------------------
   // COMMANDS
   // --------------------
   client.on("messageCreate", async message => {
-    if (!message.guild || message.author.bot) return;
-    if (!message.content.startsWith(config.PREFIX)) return;
-
-    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator))
-      return;
-
+    if (!message.guild || message.author.bot || !message.content.startsWith(config.PREFIX)) return;
     const args = message.content.slice(config.PREFIX.length).trim().split(/ +/);
     const cmd = args.shift().toLowerCase();
 
+    // -------------------- SET CHANNEL --------------------
     if (cmd === "set") {
-      const type = args.shift();
+      const type = args[0]?.toLowerCase();
       const ch = message.mentions.channels.first();
-
-      if (!type || !ch)
-        return message.reply("Usage: .set chatlb #channel or .set vclb #channel");
-
-      if (type === "chatlb") lbData.channels.chat = ch.id;
-      else if (type === "vclb") lbData.channels.voice = ch.id;
-      else return message.reply("Type must be chatlb or vclb");
-
-      saveData();
-      return message.reply(`Set ${type} to ${ch}`);
+      if (!ch) return message.channel.send("Mention a channel.");
+      if (type === "chatlb") {
+        lbData.channels.chat = ch.id;
+        saveData();
+        return message.channel.send("Chat leaderboard channel set.");
+      }
+      if (type === "vclb") {
+        lbData.channels.voice = ch.id;
+        saveData();
+        return message.channel.send("VC leaderboard channel set.");
+      }
     }
 
+    // -------------------- UPLOAD --------------------
     if (cmd === "upload") {
-      const type = args.shift();
-
-      if (!type)
-        return message.reply("Usage: .upload chat or .upload voice");
-
+      const type = args[0]?.toLowerCase();
       if (type === "chat") {
-        await updateBoards("chat");
-        return message.reply("Chat leaderboard updated.");
+        updateBoards(message.guild, "chat");
+        return message.channel.send("Chat leaderboard uploaded/updated.");
       }
-
       if (type === "voice") {
-        await updateBoards("voice");
-        return message.reply("VC leaderboard updated.");
+        updateBoards(message.guild, "voice");
+        return message.channel.send("VC leaderboard uploaded/updated.");
       }
-
-      return message.reply("Type must be chat or voice");
     }
   });
+
+  // -------------------- AUTO UPDATE EVERY 10 MINS --------------------
+  setInterval(() => {
+    client.guilds.cache.forEach(g => updateBoards(g));
+  }, 10 * 60 * 1000);
 };
+
+module.exports = leaderboard;
