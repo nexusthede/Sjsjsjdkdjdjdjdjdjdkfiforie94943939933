@@ -13,70 +13,54 @@ const voiceMaster = (client) => {
 
   const saveData = () => fs.writeFileSync(dataPath, JSON.stringify(vcData, null, 2));
 
-  // ✅ updated embed function with color
-  const embedMsg = (desc) => new EmbedBuilder()
-    .setDescription(desc)
-    .setColor("#202225");
+  const embedMsg = (desc) => new EmbedBuilder().setDescription(desc).setColor(config.EMBED_COLOR);
 
-  // --------------------
-  // VOICE STATE HANDLER
-  // --------------------
+  // Voice state handling
   client.on("voiceStateUpdate", async (oldState, newState) => {
     try {
       const userId = newState.id;
 
-      // ===== JOIN-TO-CREATE VC =====
-      if (!oldState.channelId && newState.channelId) {
-        if (newState.channelId === config.JOIN_TO_CREATE_ID) {
-          if (vcData.tempVCs[userId]) return;
+      // JOIN TO CREATE
+      if (!oldState.channelId && newState.channelId && newState.channelId === config.JOIN_TO_CREATE_ID) {
+        if (vcData.tempVCs[userId]) return;
 
-          if (!newState.guild.members.me.permissions.has([
-            PermissionsBitField.Flags.ManageChannels,
-            PermissionsBitField.Flags.Connect,
-            PermissionsBitField.Flags.MoveMembers
-          ])) return;
+        if (!newState.guild.members.me.permissions.has([
+          PermissionsBitField.Flags.ManageChannels,
+          PermissionsBitField.Flags.Connect,
+          PermissionsBitField.Flags.MoveMembers
+        ])) return;
 
-          const vc = await newState.guild.channels.create({
-            name: `${newState.member.displayName.toLowerCase()}'s channel`,
-            type: ChannelType.GuildVoice,
-            parent: config.CATEGORY_ID,
-            userLimit: 10,
-          });
+        const vc = await newState.guild.channels.create({
+          name: `${newState.member.displayName.toLowerCase()}'s channel`,
+          type: ChannelType.GuildVoice,
+          parent: config.CATEGORY_ID,
+          userLimit: 10
+        });
 
-          vcData.tempVCs[userId] = vc.id;
-          vcData.vcOwners[vc.id] = userId;
+        vcData.tempVCs[userId] = vc.id;
+        vcData.vcOwners[vc.id] = userId;
 
-          await newState.member.voice.setChannel(vc).catch(() => {});
-          saveData();
-        }
+        await newState.member.voice.setChannel(vc).catch(() => {});
+        saveData();
       }
 
-      // ===== SAFE TEMP VC DELETE =====
+      // TEMP VC DELETE
       if (oldState.channelId && vcData.vcOwners[oldState.channelId]) {
-        const tempVCId = oldState.channelId;
-        const tempVC = oldState.guild.channels.cache.get(tempVCId);
-
+        const tempVC = oldState.guild.channels.cache.get(oldState.channelId);
         if (tempVC && tempVC.members.size === 0) {
           await tempVC.delete().catch(() => {});
-          delete vcData.vcOwners[tempVCId];
-
-          for (const uid in vcData.tempVCs) {
-            if (vcData.tempVCs[uid] === tempVCId) delete vcData.tempVCs[uid];
-          }
-
+          delete vcData.vcOwners[oldState.channelId];
+          for (const uid in vcData.tempVCs) if (vcData.tempVCs[uid] === oldState.channelId) delete vcData.tempVCs[uid];
           saveData();
         }
       }
-
     } catch (err) {
       console.error("VoiceMaster error:", err);
     }
   });
 
-  // --------------------
-  // MESSAGE COMMAND HANDLER
-  // --------------------
-  client.on("messageCreate", async (message) => {
+  // VC commands
+  client.on("messageCreate", async message => {
     if (!message.guild || message.author.bot) return;
     if (!message.content.startsWith(config.PREFIX)) return;
 
@@ -84,15 +68,10 @@ const voiceMaster = (client) => {
     const cmd = args.shift().toLowerCase();
     const channel = message.member.voice.channel;
     const target = message.mentions.members.first();
-    const successEmbed = (d) => ({ embeds: [embedMsg(d)] }); // uses new color
+    const successEmbed = (d) => ({ embeds: [embedMsg(d)] });
 
-    // --------------------
-    // .list command
-    // --------------------
     if (cmd === "list") {
-      const listEmbed = new EmbedBuilder()
-        .setTitle("Available VC Commands")
-        .setDescription(`
+      return message.channel.send({ embeds: [embedMsg(`
 .vc lock — Lock your VC
 .vc unlock — Unlock your VC
 .vc hide — Hide your VC
@@ -103,74 +82,27 @@ const voiceMaster = (client) => {
 .vc rename <name> — Rename your VC
 .vc transfer @user — Transfer VC ownership
 .vc info — Show VC information
-        `)
-        .setColor("#202225"); // ✅ embed color
-
-      return message.channel.send({ embeds: [listEmbed] });
+      `)] });
     }
 
-    // --------------------
-    // VC management commands
-    // --------------------
     if (cmd !== "vc") return;
     if (!channel) return message.channel.send(successEmbed("You must be in a VC."));
     if (vcData.vcOwners[channel.id] !== message.member.id) return message.channel.send(successEmbed("You are not the VC owner."));
     if (!channel.manageable) return message.channel.send(successEmbed("I can't manage this VC."));
 
     const sub = args[0]?.toLowerCase();
-
     switch (sub) {
-      case "lock":
-        await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { Connect: false });
-        return message.channel.send(successEmbed("VC locked."));
-
-      case "unlock":
-        await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { Connect: true });
-        return message.channel.send(successEmbed("VC unlocked."));
-
-      case "hide":
-        await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { ViewChannel: false });
-        return message.channel.send(successEmbed("VC hidden."));
-
-      case "unhide":
-        await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { ViewChannel: true });
-        return message.channel.send(successEmbed("VC unhidden."));
-
-      case "kick":
-        if (!target) return message.channel.send(successEmbed("Mention a user."));
-        await target.voice.disconnect();
-        return message.channel.send(successEmbed(`${target.user.tag} kicked.`));
-
-      case "ban":
-        if (!target) return message.channel.send(successEmbed("Mention a user."));
-        await channel.permissionOverwrites.edit(target, { Connect: false });
-        await target.voice.disconnect();
-        return message.channel.send(successEmbed(`${target.user.tag} banned from VC.`));
-
-      case "permit":
-        if (!target) return message.channel.send(successEmbed("Mention a user."));
-        await channel.permissionOverwrites.edit(target, { Connect: true });
-        return message.channel.send(successEmbed(`${target.user.tag} permitted.`));
-
-      case "rename":
-        const newName = args.slice(1).join(" ");
-        if (!newName) return message.channel.send(successEmbed("Provide a new name."));
-        await channel.setName(newName);
-        return message.channel.send(successEmbed(`Renamed to ${newName}`));
-
-      case "transfer":
-        if (!target) return message.channel.send(successEmbed("Mention a user."));
-        vcData.vcOwners[channel.id] = target.id;
-        saveData();
-        return message.channel.send(successEmbed(`${target.user.tag} is now the VC owner.`));
-
-      case "info":
-        return message.channel.send(successEmbed(
-          `Name: ${channel.name}\nMembers: ${channel.members.size}\nLimit: ${channel.userLimit || "None"}`
-        ));
-
-      default:
-        return message.channel.send(successEmbed("Unknown subcommand. Use `.list` to see commands."));
+      case "lock": await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { Connect: false }); return message.channel.send(successEmbed("VC locked."));
+      case "unlock": await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { Connect: true }); return message.channel.send(successEmbed("VC unlocked."));
+      case "hide": await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { ViewChannel: false }); return message.channel.send(successEmbed("VC hidden."));
+      case "unhide": await channel.permissionOverwrites.edit(channel.guild.roles.everyone, { ViewChannel: true }); return message.channel.send(successEmbed("VC unhidden."));
+      case "kick": if (!target) return message.channel.send(successEmbed("Mention a user.")); await target.voice.disconnect(); return message.channel.send(successEmbed(`${target.user.tag} kicked.`));
+      case "ban": if (!target) return message.channel.send(successEmbed("Mention a user.")); await channel.permissionOverwrites.edit(target, { Connect: false }); await target.voice.disconnect(); return message.channel.send(successEmbed(`${target.user.tag} banned from VC.`));
+      case "permit": if (!target) return message.channel.send(successEmbed("Mention a user.")); await channel.permissionOverwrites.edit(target, { Connect: true }); return message.channel.send(successEmbed(`${target.user.tag} permitted.`));
+      case "rename": const newName = args.slice(1).join(" "); if (!newName) return message.channel.send(successEmbed("Provide a new name.")); await channel.setName(newName); return message.channel.send(successEmbed(`Renamed to ${newName}`));
+      case "transfer": if (!target) return message.channel.send(successEmbed("Mention a user.")); vcData.vcOwners[channel.id] = target.id; saveData(); return message.channel.send(successEmbed(`${target.user.tag} is now the VC owner.`));
+      case "info": return message.channel.send(successEmbed(`Name: ${channel.name}\nMembers: ${channel.members.size}\nLimit: ${channel.userLimit || "None"}`));
+      default: return message.channel.send(successEmbed("Unknown subcommand. Use `.list` to see commands."));
     }
   });
 };
