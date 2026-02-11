@@ -1,7 +1,5 @@
 // Import required modules
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
-const fs = require("fs");
-const path = require("path");
 
 const voiceMaster = require("./voiceMaster");
 const welcome = require("./welcome");        // Welcome + test greet module
@@ -16,21 +14,12 @@ const config = require("./config");
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers,       // needed for welcome messages
+    GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent
   ]
 });
-
-// ======================
-// ENSURE lbData.json EXISTS
-// ======================
-const lbFile = path.join(__dirname, "lbData.json");
-if (!fs.existsSync(lbFile)) {
-  fs.writeFileSync(lbFile, JSON.stringify({ chat: {}, voice: {} }, null, 2));
-  console.log("Created lbData.json for leaderboard persistence.");
-}
 
 // ======================
 // UPTIME SERVER
@@ -67,16 +56,21 @@ client.once("ready", () => {
 // ======================
 // LOAD MODULES
 // ======================
-voiceMaster(client);     // Voice Master VC module
-welcome(client);         // Welcome + test greet module
-moderation(client);      // Moderation module (staff protected)
-leaderboard(client);     // Chat + VC Leaderboard module
+voiceMaster(client);
+welcome(client);
+moderation(client);
+leaderboard(client);
 
 // ======================
 // SAFETY
 // ======================
-process.on("unhandledRejection", console.error);
-process.on("uncaughtException", console.error);
+process.on("unhandledRejection", err => {
+  console.error("Unhandled Rejection:", err);
+});
+
+process.on("uncaughtException", err => {
+  console.error("Uncaught Exception:", err);
+});
 
 // ======================
 // LOGIN
