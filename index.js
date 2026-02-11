@@ -1,9 +1,6 @@
 // Import required modules
 const { Client, GatewayIntentBits, ActivityType } = require("discord.js");
-
 const voiceMaster = require("./voiceMaster");
-const welcome = require("./welcome");        // Welcome + test greet module
-const moderation = require("./moderation");  // Moderation module (staff protected)
 const leaderboard = require("./leaderboard"); // Chat + VC Leaderboard module
 const express = require("express");
 const config = require("./config");
@@ -56,10 +53,8 @@ client.once("ready", () => {
 // ======================
 // LOAD MODULES
 // ======================
-voiceMaster(client);
-welcome(client);
-moderation(client);
-leaderboard(client);
+voiceMaster(client);   // Voice Master VC module
+leaderboard(client);   // Chat + VC Leaderboard module
 
 // ======================
 // SAFETY
